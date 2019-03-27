@@ -1,5 +1,3 @@
-#pragma pack(1)
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,14 +6,12 @@
 #include <netinet/udp.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#pragma pack(1)
 
-// Typedef the iphdr and udphdr from the netinet libs to prevent 
-// an infestation of "struct" in all the checksum and size calculations
-typedef struct iphdr iph;
-typedef struct udphdr udph;
+typedef struct iphdr ipHeader;
+typedef struct udphdr udpHeader;
 
 
-// Pseudoheader struct
 typedef struct
 {
     u_int32_t saddr;
@@ -25,21 +21,19 @@ typedef struct
     u_int16_t len;
 }psHeader;
 
-// DNS header struct
 typedef struct
 {
-	unsigned short id; 		// ID
-	unsigned short flags;	// DNS Flags
-	unsigned short qcount;	// Question Count
-	unsigned short ans;		// Answer Count
-	unsigned short auth;	// Authority RR
-	unsigned short add;		// Additional RR
+	unsigned short id;
+	unsigned short flags;
+	unsigned short qusCount;
+	unsigned short ansCount;
+	unsigned short authCount;
+	unsigned short addRecordCount;
 }dnsHeader;
 
-// Question types
 typedef struct
 {
-	unsigned short qtype;
+	unsigned short type;
 	unsigned short qclass;
 }query;
 

