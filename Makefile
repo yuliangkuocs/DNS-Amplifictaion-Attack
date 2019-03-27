@@ -1,4 +1,4 @@
 all: main.c dns.c dns.h
-	gcc main.c dns.c
+	gcc dns.c
 clean:
 	rm a.out
