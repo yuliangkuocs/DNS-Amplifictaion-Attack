@@ -1,4 +1,4 @@
-all: main.c dns.c dns.h
-	gcc dns.c
+all: dns.c dns.h
+	gcc -o DnsAmplificationAttack dns.c
 clean:
-	rm a.out
+	rm DnsAmplificationAttack
