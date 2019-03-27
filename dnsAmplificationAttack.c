@@ -1,4 +1,4 @@
-#include "dns.h"
+#include "dnsAmplificationAttack.h"
 #include <string.h>
 
 unsigned short checkSum(unsigned short *ptr, int numBytes) 
@@ -84,12 +84,12 @@ void queryset(query *q){
 
 void dnsAmplificationAttack(char *targetIp, int targetPort)
 {
-	printf("dnsHeaer size: %d\n", sizeof(dnsHeaer));
-	printf("query size: %d\n", sizeof(query));
-	printf("iph size: %d\n", sizeof(iph));
-	printf("udph size: %d\n", sizeof(udph));
-	printf("eDnsHeader size: %d\n", sizeof(eDnsHeader));
-	printf("psHeader size: %d\n", sizeof(psHeader));
+	printf("dnsHeaer size: %ld\n", sizeof(dnsHeader));
+	printf("query size: %ld\n", sizeof(query));
+	printf("iph size: %ld\n", sizeof(iph));
+	printf("udph size: %ld\n", sizeof(udph));
+	printf("eDnsHeader size: %ld\n", sizeof(eDnsHeader));
+	printf("psHeader size: %ld\n", sizeof(psHeader));
 
 
 	char *dnsIp = "8.8.8.8";
